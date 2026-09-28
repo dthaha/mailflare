@@ -1,17 +1,10 @@
-import { eq } from "drizzle-orm";
-import type { AppDatabase } from "@/db";
-import { licenseSettings } from "@/db/schema";
-
-export async function isTeamMailboxSharingEnabled(db: AppDatabase): Promise<boolean> {
-	try {
-		const [license] = await db
-			.select({ plan: licenseSettings.plan, state: licenseSettings.state })
-			.from(licenseSettings)
-			.where(eq(licenseSettings.id, "default"))
-			.limit(1);
-
-		return license?.plan === "team" && license.state === "active";
-	} catch {
-		return false;
-	}
+/**
+ * Shared-inbox features are always available in this build.
+ *
+ * Upstream reads a Team license out of the database to decide whether mailboxes
+ * can be shared; the entitlement layer above already returns Team, and this
+ * stays a function (rather than a constant) so the call sites keep their shape.
+ */
+export async function isTeamMailboxSharingEnabled(_db?: unknown): Promise<boolean> {
+	return true;
 }

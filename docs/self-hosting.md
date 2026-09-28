@@ -56,12 +56,13 @@ certificate on a private network.
 Sending: Edit. The domain must be a Cloudflare zone with Email Sending set
 up; Mailflare calls the REST API, no Workers plan needed.
 
-## Cloudflare zone management (optional)
+## Cloudflare zone management
 
-If `CF_TOKEN` can also edit DNS and Email Routing on your zones, adding a
-domain configures Email Routing and the sending subdomain automatically,
-exactly as on Workers. Without it, domains are recorded as manually managed
-and the DNS page shows what to set by hand.
+There is none, on either runtime. Adding a domain records it locally and the DNS
+page lists the records that have to exist; the app never writes to your zone and
+needs no token to do it. Configure Email Routing and DNS in the dashboard (or
+declare the routing rules in `wrangler.jsonc`), then use the domain page to check
+the result against public DNS.
 
 ## Configuration reference
 
@@ -76,7 +77,7 @@ and the DNS page shows what to set by hand.
 | `SMTP_TLS_KEY`, `SMTP_TLS_CERT` | unset | STARTTLS certificate for the listener |
 | `SMTP_URL` | unset | Outbound relay |
 | `SMTP_TLS_REJECT_UNAUTHORIZED` | `true` | Trust self-signed relay certificates when `false` |
-| `CF_ACCOUNT_ID`, `CF_TOKEN` | unset | Cloudflare Email Sending, and zone management if the token allows |
+| `CF_ACCOUNT_ID`, `CF_TOKEN` | unset | Outbound mail through Cloudflare Email Sending (never zone management) |
 | `INBOUND_WEBHOOK_SECRET` | unset | Enables `/api/inbound` for the relay Worker |
 | `TURNSTILE_SECRET_KEY` | unset | Bot protection on login and reset forms (`NEXT_PUBLIC_TURNSTILE_SITE_KEY` at build time) |
 | `AI_BASE_URL` | unset | OpenAI-compatible model API base URL for the assistant |

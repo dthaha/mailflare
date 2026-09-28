@@ -134,8 +134,10 @@ export function OnboardingClient() {
 				{step === 1 && (
 					<>
 						<p className="rounded-2xl bg-[#eaf1fb] px-4 py-3 text-sm leading-6 text-neutral-700">
-							Your domain must use Cloudflare DNS on the same account as{" "}
-							<code className="no-font-mono text-xs font-semibold text-blue-800">CF_TOKEN</code>.
+							Your domain must use Cloudflare DNS. This install holds no Cloudflare
+							credentials: after this step you create the MX, SPF, DKIM and DMARC
+							records the domain page lists, and point an Email Routing rule at this
+							Worker.
 						</p>
 						<div className="space-y-2">
 							<Label htmlFor="domain">Domain</Label>
@@ -159,7 +161,7 @@ export function OnboardingClient() {
 								<Label htmlFor="onboarding-enable-sending">Enable sending</Label>
 								<p className="mt-1 text-xs leading-5 text-neutral-500">
 									{domainChecking
-										? "Checking Cloudflare access..."
+										? "Checking DNS records..."
 										: domainCheck
 											? enableSending
 												? "Required to send email."
@@ -181,7 +183,7 @@ export function OnboardingClient() {
 						{domainCheck && (
 							<div className="flex items-center gap-3 rounded-2xl bg-green-50 px-4 py-3 text-sm text-green-700">
 								<CheckCircle2 className="h-4 w-4" />
-								Domain found in Cloudflare as {domainCheck.zone.name}
+								Manual DNS mode for {domainCheck.zone.name}
 							</div>
 						)}
 						{mxConflict && (

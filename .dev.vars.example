@@ -1,14 +1,21 @@
-# Preferred: scoped API token.
-# This is an app runtime token, not the Cloudflare deploy/build token.
-CF_TOKEN=your_api_token_with_zone_email_permissions
+# This build holds no Cloudflare credentials: DNS and Email Routing are yours to
+# manage (see docs/manual-setup.md). Nothing below is required to receive mail.
+
 # Optional: lets the admin dashboard trigger the GitHub update workflow.
-# GITHUB_UPDATE_TOKEN=github_pat_with_actions_write
+# GITHUB_UPDATE_TOKEN=github...rite
 # GITHUB_UPDATE_REPO=owner/repo
 # GITHUB_UPDATE_REF=main
 
-# Legacy Global API Key alternative. Use this only instead of CF_TOKEN.
-# CF_EMAIL=you@example.com
-# CF_API_KEY=your_global_api_key
+# Optional: Cloudflare Turnstile on the first-run registration form.
+# TURNSTILE_SECRET_KEY=
 
-# The Worker uses the AI binding in wrangler.jsonc. Override its chat/draft model if needed.
-# AI_MODEL=@cf/moonshotai/kimi-k2.5
+# The Worker uses the AI binding in wrangler.jsonc. Override its chat/draft model
+# if needed (the default is a US-origin model on Workers AI).
+# AI_MODEL=@cf/meta/llama-3.3-70b-instruct-fp8-fast
+
+# Self-hosted Node runtime only (server/): outbound mail through any SMTP relay,
+# or through Cloudflare Email Sending with an account id and a token that has
+# Email Sending:Edit. Neither is used to manage DNS or Email Routing.
+# SMTP_URL=smtps://user:pass@host:465
+# CF_ACCOUNT_ID=
+# CF_TOKEN=

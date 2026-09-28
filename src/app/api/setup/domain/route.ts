@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { hasAdminAccount } from "@/lib/auth/setup";
 import { getEnv } from "@/lib/cloudflare";
-import { preflightDomain } from "@/lib/domains/preflight";
+import { MANUAL_ZONE_ID } from "@/lib/domains/provision";
 import { getPrimaryDomain } from "@/lib/user";
 import { setupDomainSchema } from "@/lib/validators";
 import { readJsonBody } from "@/lib/http/request";
@@ -30,10 +30,6 @@ export async function POST(request: Request) {
 		return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 	}
 
-	try {
-		return NextResponse.json({ domain: await preflightDomain(env, parsed.data.hostname) });
-	} catch (err) {
-		const message = err instanceof Error ? err.message : "Domain check failed";
-		return NextResponse.json({ error: message }, { status: 502 });
-	}
+	const hostname = parsed.data.hostname.toLowerCase().trim();
+	return NextResponse.json({ domain: { hostname, zone: { id: MANUAL_ZONE_ID, name: hostname } } });
 }

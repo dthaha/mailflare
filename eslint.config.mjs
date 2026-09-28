@@ -19,6 +19,17 @@ const eslintConfig = [
 	},
 	...nextCoreWebVitals,
 	...nextTypescript,
+	{
+		rules: {
+			// Manually managed DNS and the always-on entitlement layer keep the
+			// signature of the functions they replace, so some parameters exist only
+			// to preserve call sites and are marked with a leading underscore.
+			"@typescript-eslint/no-unused-vars": [
+				"warn",
+				{ argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" },
+			],
+		},
+	},
 ];
 
 export default eslintConfig;

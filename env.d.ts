@@ -21,9 +21,6 @@ interface CloudflareEnv {
 	>;
 	LOGIN_RATE_LIMIT?: RateLimit;
 	AGENT_RATE_LIMIT?: RateLimit;
-	CF_TOKEN?: string;
-	CF_API_KEY?: string;
-	CF_EMAIL?: string;
 	TURNSTILE_SECRET_KEY?: string;
 	GITHUB_UPDATE_TOKEN?: string;
 	GITHUB_UPDATE_REF?: string;
@@ -32,8 +29,11 @@ interface CloudflareEnv {
 	MAILFLARE_RUNTIME?: "node";
 	/** Shared secret the Cloudflare email relay signs inbound webhooks with (self-hosted only). */
 	INBOUND_WEBHOOK_SECRET?: string;
-	/** Cloudflare account id, needed for the Email Sending REST API off Workers. */
-	CF_ACCOUNT_ID?: string;
 	/** Public origin of this install (https://mail.example.com) when it sits behind a proxy. */
 	APP_URL?: string;
+	/**
+	 * Name of the Worker that Email Routing rules point at, used only to render the
+	 * manual setup instructions. Defaults to "mailflare".
+	 */
+	EMAIL_WORKER_NAME?: string;
 }

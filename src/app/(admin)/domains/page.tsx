@@ -25,12 +25,6 @@ import { checkDomain } from "./utils";
 export default function DomainsPage() {
   const qc = useQueryClient();
   const [hostname, setHostname] = useState("");
-  // Self-hosted installs without Cloudflare credentials manage DNS by hand.
-  const { data: me } = useQuery({
-    queryKey: ["me"],
-    queryFn: async () => (await (await authFetch("/api/auth/me")).json()) as { managesDns?: boolean },
-  });
-  const managesDns = me?.managesDns ?? true;
   const [domainCheck, setDomainCheck] = useState<DomainPreflight | null>(null);
   const [domainChecking, setDomainChecking] = useState(false);
   const [enableSending, setEnableSending] = useState(false);
@@ -207,9 +201,9 @@ export default function DomainsPage() {
         <div>
           <h1 className="text-3xl font-medium">Domains</h1>
           <p className="mt-1 text-sm text-neutral-500">
-            {managesDns
-              ? "Domains must be on your Cloudflare account. Email Routing is enabled automatically, and Email Sending can be enabled when available."
-              : "Add the domains this server receives mail for. Open DNS on a domain to see the MX, SPF and DMARC records to create."}
+            Add the domains this install receives mail for. Open DNS on a domain to see
+            the MX, SPF and DMARC records to create, and to check them against public DNS.
+            This install never edits your DNS.
           </p>
         </div>
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
@@ -249,7 +243,7 @@ export default function DomainsPage() {
                   <Label htmlFor="enable-sending">Enable sending</Label>
                   <p className="mt-1 text-xs leading-5 text-neutral-500">
                     {domainChecking
-                      ? "Checking Cloudflare access..."
+                      ? "Checking DNS records..."
                       : domainCheck
                         ? enableSending
                           ? "Required to send email."
@@ -271,7 +265,7 @@ export default function DomainsPage() {
               {domainCheck && (
                 <div className="flex items-center gap-3 rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700">
                   <CheckCircle2 className="h-4 w-4" />
-                  Domain found in Cloudflare as {domainCheck.zone.name}
+                  Manual DNS mode for {domainCheck.zone.name} — the records to create are listed after you save
                 </div>
               )}
               {domainCheckError && (
@@ -283,18 +277,11 @@ export default function DomainsPage() {
                 <div className="space-y-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
                   <p>{(create.error as Error).message}</p>
                   <div className="space-y-2">
-                    <p className="font-medium">
-                      Check that your Cloudflare API token has these permissions:
-                    </p>
+                    <p className="font-medium">This install does not configure Cloudflare for you:</p>
                     <ul className="list-disc space-y-1 pl-5">
-                      <li>
-                        All accounts — DNS Settings:Edit, Email Routing
-                        Addresses:Edit; Email Sending:Edit for outbound mail
-                      </li>
-                      <li>
-                        All zones — DNS Settings:Edit, Email Routing Rules:Edit,
-                        Zone Settings:Edit, DNS:Edit
-                      </li>
+                      <li>Onboard the domain to Email Routing (Compute → Email Service).</li>
+                      <li>Point an address, or the catch-all rule, at this Worker.</li>
+                      <li>Create the MX, SPF, DKIM and DMARC records the domain page lists.</li>
                     </ul>
                   </div>
                 </div>

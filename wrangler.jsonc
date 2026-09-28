@@ -8,6 +8,11 @@
 		"nodejs_compat",
 		"global_fetch_strictly_public"
 	],
+	// Email Routing rules are configuration, not application state, so they are
+	// declared here instead of being created at runtime with a Cloudflare token.
+	// Wrangler (>= 4.113.0) reconciles these on deploy: each entry uses the
+	// "Send to a Worker" action and "*@example.com" configures the catch-all.
+	// "addresses": ["*@your-domain.com"],
 	"assets": {
 		"binding": "ASSETS",
 		"not_found_handling": "none",

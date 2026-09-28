@@ -4,6 +4,12 @@
 
 Mailflare is a self-hosted email inbox for custom domains, built on Cloudflare.
 
+> **Fork note.** This build manages no Cloudflare configuration: no API token, no
+> DNS or Email Routing writes, and no licensing calls. You own the zone; the app
+> only stores mail and tells you which records have to exist. Every feature
+> upstream gates behind a paid license (multiple accounts, shared inboxes,
+> branding, forwarding) is enabled. See [Manual setup](./docs/manual-setup.md).
+
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/hieunc229/mailflare)
 
 ## Screenshots
@@ -52,7 +58,7 @@ Getting started takes three steps:
 2. **Complete setup.** Open the deployed app and follow `/setup` to check the installation and create your admin account.
 3. **Connect your domain.** Add a domain managed by the same Cloudflare account. Mailflare configures its email routing and helps you create the first mailbox.
 
-⚠️ IMPORTANT: **`CF_TOKEN` is required during deployment**. Create a scoped [Cloudflare API token with the following permissions](https://github.com/hieunc229/mailflare/issues/24#issuecomment-5523686105) for the domains you want to connect.
+There is no `CF_TOKEN` to create. Onboard the domain to Email Routing, point its addresses (or the catch-all rule) at this Worker, and let Cloudflare write the MX/SPF/DKIM records — or declare the rules in `wrangler.jsonc` and create the records yourself. [Manual setup](./docs/manual-setup.md) has the exact list.
 - All accounts - Email Sending:Edit, DNS Settings:Edit, Email Routing Addresses:Edit
 - All zones - DNS Settings:Edit, Email Routing Rules:Edit, Zone Settings:Edit, DNS:Edit
 
@@ -93,4 +99,5 @@ The Cloudflare app uses vinext and the Cloudflare Vite plugin, including local D
 
 ## License
 
-See [LICENSE](LICENSE).
+AGPL-3.0, unchanged from upstream: see [LICENSE](LICENSE). This fork keeps no
+additional terms.

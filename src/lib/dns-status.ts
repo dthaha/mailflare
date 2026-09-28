@@ -1,4 +1,4 @@
-import type { CfDnsRecord } from "@/lib/cloudflare-api";
+import type { CfDnsRecord } from "@/lib/cloudflare-api.types";
 import type { DnsAuthRecord, DnsAuthStatus, DomainDnsAudit } from "@/lib/domains/dns-audit";
 
 export type DnsAuthSummary = Record<DnsAuthRecord, DnsAuthStatus>;

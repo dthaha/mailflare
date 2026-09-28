@@ -6,11 +6,11 @@ This guide covers Cloudflare deployment, runtime configuration, database backups
 
 Set up Mailflare in three steps:
 
-1. **Deploy the app:** use the Deploy to Cloudflare button, set the app name to `mailflare`, and provide the required `CF_TOKEN`.
+1. **Deploy the app:** use the Deploy to Cloudflare button and set the app name to `mailflare`. There is no API token to provide.
 2. **Complete setup:** open the deployed app and follow `/setup` to check the installation and create the first admin account.
-3. **Connect your domain:** add a domain managed by the same Cloudflare account. Mailflare configures email routing and, when available and selected, email sending before helping you create the first mailbox.
+3. **Connect your domain:** add the domain in Mailflare, then do the two Cloudflare-side steps by hand — onboard it to Email Routing and point its addresses at this Worker. See [Manual setup](./manual-setup.md).
 
-The Worker name must remain `mailflare`. Before starting, create the required `CF_TOKEN` with **Zone Read**, **DNS Edit**, **Email Routing Edit**, and **Email Routing Rules Write** permissions for every domain you plan to connect. DNS Edit lets the confirmed setup flow replace conflicting MX records. Add **Email Sending Edit** when Mailflare should send email; it is optional for receive-only domains.
+The Worker name must remain `mailflare` (or set `EMAIL_WORKER_NAME` to whatever you call it) because Email Routing rules point at it by name. This build holds no Cloudflare credentials: it never reads or writes your DNS, your Email Routing rules or your sending subdomains, so there are no token permissions to configure and nothing it can break in your account.
 
 ## Step 1: Deploy mailflare
 
@@ -19,16 +19,16 @@ The Worker name must remain `mailflare`. Before starting, create the required `C
 1. Click **Deploy to Cloudflare** above and sign in to Cloudflare if prompted.
 2. Choose the Cloudflare account that owns the domain you want to use.
 3. Set the app name to exactly `mailflare`. Do not rename it.
-4. Add `CF_TOKEN` when Cloudflare asks for the app's runtime variables or secrets.
+4. Skip the variables and secrets step: this build needs none. (Optional extras are listed in `.dev.vars.example`.)
 5. Start the deployment and wait for Cloudflare to finish provisioning and deploying the Worker.
 
 ### Required configuration
 
-Mailflare requires this runtime value:
+None. The Worker needs its bindings from `wrangler.jsonc` and nothing else; D1 migrations are applied through the `DB` binding during setup.
 
-- `CF_TOKEN` — a scoped Cloudflare API token with **Zone Read**, **DNS Edit**, **Email Routing Edit**, and **Email Routing Rules Write** access for the domains you will connect. Add **Email Sending Edit** to enable outbound mail. This is separate from the token Cloudflare uses to deploy the app.
+Optional runtime values are documented in `.dev.vars.example` (Turnstile for the registration form, a GitHub token for the in-dashboard updater, a model override for the assistant).
 
-Paste only the token secret into `CF_TOKEN`. Do not include the word `Bearer` and do not use the token ID. The token must belong to the same Cloudflare account as the domains you connect.
+There is no app token to paste. Make sure the domain uses Cloudflare DNS, since Email Routing requires it, and note that Email Routing and another mail provider cannot share the same MX records — whoever owns them wins.
 
 ## Step 2: Complete mailflare setup
 
@@ -41,7 +41,7 @@ Setup applies the committed migrations through the Worker's D1 binding before cr
 
 ## Step 3: Connect your primary domain and create an account
 
-1. Enter a domain that already uses Cloudflare DNS on the same account as `CF_TOKEN`.
+1. Enter a domain that already uses Cloudflare DNS.
 2. Continue while Mailflare enables Email Routing and configures the required routing and sending DNS.
 3. Choose the address for your first mailbox and finish setup.
 4. Open the inbox and send a test message to the new address.
@@ -127,6 +127,6 @@ New application releases must remain compatible with the previous schema until a
 
 When adding a schema change, create a new uniquely named SQL file in `drizzle/migrations` and do not edit an applied migration. Build and development commands generate the Worker migration bundle from those files. `npm run db:bundle` can generate it explicitly.
 
-## Branding license
+## Licensing
 
-Activate a purchased Pro or Team key from **Admin → Licenses**. Mailflare sends the key to Paymug and stores only a one-way hash and the activation state. Apply all D1 migrations before activating a license.
+None required. This build's entitlement layer returns Team unconditionally, so branding, forwarding, shared inboxes and multi-user account management are all enabled, no key is validated and no installation identifier leaves the Worker. **Admin → Licenses** explains this in the UI.

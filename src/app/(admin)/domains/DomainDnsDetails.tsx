@@ -24,9 +24,11 @@ export default function DomainDnsDetails({
 	const routingOk = dns.routing.missing.length === 0 && (dns.routing.records.length > 0 || domain.routingEnabled);
 	const routingLabel = routingOk
 		? "Email routing is configured"
-		: dns.routing.missing.length > 0
-			? `${dns.routing.missing.length} DNS record${dns.routing.missing.length === 1 ? "" : "s"} missing`
-			: "No routing DNS records found";
+		: dns.routing.status === "manual"
+			? "Records to create are listed below and checked against public DNS"
+			: dns.routing.missing.length > 0
+				? `${dns.routing.missing.length} DNS record${dns.routing.missing.length === 1 ? "" : "s"} missing`
+				: "No routing DNS records found";
 	return (
 		<div className="px-4 pb-4 pt-4 sm:px-5 sm:pb-5">
 			{audit && (
@@ -121,8 +123,10 @@ export default function DomainDnsDetails({
 					</ul>
 					{manual && (
 						<p className="text-xs text-neutral-500">
-							DNS is managed manually for this domain, so records must be created
-							where the domain&apos;s nameservers are hosted.
+							This install never edits your DNS. Create the records above where the
+							domain&apos;s nameservers are hosted — Cloudflare writes most of them when
+							the domain is onboarded to Email Routing and Email Sending — then reload
+							to verify them against public DNS.
 						</p>
 					)}
 					{setupMessage && <p className="text-xs text-red-600">{setupMessage}</p>}

@@ -114,9 +114,11 @@ Mailbox authorization is separate from user role and goes through `src/lib/mailb
 
 `messages.status` is a free-text column driving the folder views: `received` (inbox), `sent`, `draft`, `spam`, `trash`, `archived`. Orthogonal to that are `starred`, `snoozedUntil`, and `folderId` (user-created folders in the `folders` table). A "folder" route under `src/app/(dashboard)/` is usually a status filter, not a table.
 
-### Licensing gates branding
+### This fork: no Cloudflare writes, no licensing
 
-Pro/Team keys are validated against Paymug (`src/lib/licenses/`); only a one-way key hash is stored. Without an active license the app falls back to the default name, icon, and favicon, and custom branding is unavailable. `getLicenseEntitlements` is the gate.
+`hasCloudflareCredentials()` (`src/lib/runtime.ts`) is a constant `false`, so every domain takes the manual path: `provisionDomainOnCloudflare` (`src/lib/domains/provision.ts`) records `MANUAL_ZONE_ID` and nothing else. `src/lib/cloudflare-api.ts` is a shim — `cfRequest` rejects and the two routing helpers are no-ops — and there is no token, key or account id in `env.d.ts`. Do not add one: DNS and Email Routing are the operator's, declared in the dashboard or in `wrangler.jsonc`'s `addresses` field. `tests/manual-dns-mode.test.mjs` fails the build if a source file starts calling the Cloudflare API again.
+
+`getLicenseEntitlements` (`src/lib/licenses/service.ts`) returns Team unconditionally, so branding, forwarding and account management are always on; do not reintroduce a key check. Public DNS (DNS-over-HTTPS in `src/lib/dns-query.ts`) is the only way the app learns what a domain's records look like.
 
 ### Self-update
 

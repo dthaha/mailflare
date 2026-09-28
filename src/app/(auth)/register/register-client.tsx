@@ -315,7 +315,8 @@ export function RegisterClient() {
               }}
             />
             <p className="text-xs leading-5 text-neutral-500">
-              The domain must already be a Cloudflare zone on this account.
+              The domain must already use Cloudflare DNS. This install will not change
+              your DNS: it lists the records to create after setup.
             </p>
           </div>
           <div className="flex items-center justify-between gap-4 rounded-2xl bg-neutral-50 px-4 py-3">
@@ -323,7 +324,7 @@ export function RegisterClient() {
               <Label htmlFor="setup-enable-sending">Enable sending</Label>
               <p className="mt-1 text-xs leading-5 text-neutral-500">
                 {domainChecking
-                  ? "Checking Cloudflare access..."
+                  ? "Checking DNS records..."
                   : domainCheck
                     ? enableSending
                       ? "Required to send email."
@@ -341,7 +342,7 @@ export function RegisterClient() {
           {domainCheck && (
             <div className="flex items-center gap-3 rounded-2xl bg-green-50 px-4 py-3 text-sm text-green-700">
               <CheckCircle2 className="h-4 w-4" />
-              Domain found in Cloudflare as {domainCheck.zone.name}
+              Manual DNS mode for {domainCheck.zone.name}
             </div>
           )}
           {error && (
@@ -381,10 +382,10 @@ export function RegisterClient() {
 							<span>
 								<span className="flex items-center gap-2 text-sm font-medium">
 									<AlertTriangle className="h-4 w-4" />
-									Replace existing MX records
+									Your domain already has MX records
 								</span>
 								<span className="mt-1 block text-xs leading-5">
-									This deletes the current mail provider's MX records and replaces them with Cloudflare Email Routing. The previous provider will stop receiving mail.
+									Cloudflare Email Routing needs exclusive control of them, and this install will not touch your DNS. Remove the MX records your current mail provider uses, then add the Cloudflare ones. Until then mail keeps going to the old provider.
 								</span>
 							</span>
 						</label>

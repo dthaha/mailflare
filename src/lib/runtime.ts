@@ -16,7 +16,17 @@ export function isNodeRuntime(env?: Pick<CloudflareEnv, "MAILFLARE_RUNTIME">): b
 	return (env ?? getNodeEnv())?.MAILFLARE_RUNTIME === "node";
 }
 
-/** True when the app can talk to the Cloudflare API to manage zones and routing. */
-export function hasCloudflareCredentials(env: Pick<CloudflareEnv, "CF_TOKEN" | "CF_API_KEY" | "CF_EMAIL">): boolean {
-	return !!env.CF_TOKEN?.trim() || (!!env.CF_API_KEY?.trim() && !!env.CF_EMAIL?.trim());
+/**
+ * This build never talks to the Cloudflare API, so the app holds no API token,
+ * no global key and no account id. DNS and Email Routing belong to whoever runs
+ * the nameservers: they are configured by hand in the dashboard, or declared for
+ * Wrangler with the `addresses` field, and every domain Mailflare stores is
+ * recorded as manually managed.
+ *
+ * Callers use this to decide whether they may configure a zone for you. It is a
+ * function, and a constant, so those branches keep compiling and always take the
+ * manual path.
+ */
+export function hasCloudflareCredentials(_env?: unknown): false {
+	return false;
 }

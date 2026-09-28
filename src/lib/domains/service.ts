@@ -1,34 +1,19 @@
-import { eq, and, ne } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { getDb } from "@/db";
 import { domains, mailboxes } from "@/db/schema";
 import { ensureMailboxDomainRouting } from "@/lib/mailboxes/domain-addresses";
 import { newId } from "@/lib/ids";
-import {
-	disableEmailRouting,
-	getEmailRoutingDns,
-	getEmailRoutingSettings,
-	getSendingSubdomainDns,
-	deleteSendingSubdomain,
-	listSendingSubdomains,
-	type CfDnsRecord,
-} from "@/lib/cloudflare-api";
-import { deleteEmailRoutingRulesForDomain } from "@/lib/domains/cloudflare-cleanup";
+import type { CfDnsRecord } from "@/lib/cloudflare-api.types";
 import { isManualZone, provisionDomainOnCloudflare } from "@/lib/domains/provision";
 import { getManualDomainDns } from "@/lib/domains/manual-dns";
-import { rollbackDomainProvisioning } from "@/lib/domains/rollback";
 import type { DomainProvisioningChanges } from "@/lib/domains/types";
-import { findSendingSubdomain } from "@/lib/domains/sending-status";
-import { preflightDomain } from "@/lib/domains/preflight";
-import { hasCloudflareCredentials } from "@/lib/runtime";
 
 export type DomainDnsView = {
 	routing: { records: CfDnsRecord[]; missing: CfDnsRecord[]; status?: string };
 	sending: CfDnsRecord[];
 	sendingEnabled: boolean;
-	/** DKIM selector Cloudflare signs with, when a sending subdomain exists. */
+	/** DKIM selector the routing records use, so the audit checks the right name. */
 	dkimSelector?: string;
-	/** The matching sending subdomain, when the zone has the domain added for sending. */
-	sendingSubdomain?: { name: string; tag: string };
 };
 
 export async function listUserDomains(env: CloudflareEnv, userId: string) {
@@ -52,17 +37,10 @@ export async function addDomainForUser(
 	if (claimedHostname && claimedHostname.userId !== userId) {
 		throw new Error("Domain is already registered");
 	}
-	if (hasCloudflareCredentials(env)) {
-		const { zone } = await preflightDomain(env, normalizedHostname);
-		const [claimedZone] = await db.select({ userId: domains.userId }).from(domains).where(and(
-			eq(domains.zoneId, zone.id),
-			ne(domains.userId, userId),
-		)).limit(1);
-		if (claimedZone) {
-			throw new Error("Cloudflare zone is already registered to another account");
-		}
-	}
-	const provisioned = await provisionDomainOnCloudflare(env, hostname, options);
+
+	// Nothing is provisioned on Cloudflare: DNS stays the operator's, so adding a
+	// domain is a local record plus the checklist the DNS page renders.
+	const provisioned = await provisionDomainOnCloudflare(env, normalizedHostname, options);
 	let insertedDomainId: string | null = null;
 	let domain: typeof domains.$inferSelect;
 
@@ -78,7 +56,7 @@ export async function addDomainForUser(
 			userId,
 			hostname: provisioned.hostname,
 			zoneId: provisioned.zone.id,
-			status: provisioned.routingEnabled || provisioned.sendingEnabled ? ("active" as const) : ("pending" as const),
+			status: ("active" as const),
 			routingStatus: provisioned.routingStatus ?? null,
 			sendingSubdomainTag: provisioned.sendingSubdomainTag,
 			sendingRequested: provisioned.sendingRequested,
@@ -93,6 +71,9 @@ export async function addDomainForUser(
 			insertedDomainId = domainId;
 		}
 
+		// Addresses a mailbox answers on every domain keep their stored list in
+		// sync; with manual zones this is a no-op for routing rules, kept so the
+		// address book stays consistent whether or not the domain was new.
 		const aliasMailboxes = await db
 			.select({ id: mailboxes.id, domainId: mailboxes.domainId, localPart: mailboxes.localPart, useAllDomains: mailboxes.useAllDomains })
 			.from(mailboxes)
@@ -108,10 +89,8 @@ export async function addDomainForUser(
 		const [row] = await db.select().from(domains).where(eq(domains.id, domainId)).limit(1);
 		domain = row!;
 	} catch (err) {
-		// The zone was already provisioned above. Anything that fails after that —
-		// a hostname owned by another user, an unmigrated D1 schema — would otherwise
-		// strand Email Routing and the sending subdomain with nothing referencing them.
-		await rollbackDomainProvisioning(env, provisioned.changes);
+		// The domain row is the only thing this wrote, and its own insert is the
+		// only thing that can leave a partial record behind.
 		if (insertedDomainId) {
 			try {
 				await db.delete(domains).where(eq(domains.id, insertedDomainId));
@@ -122,18 +101,15 @@ export async function addDomainForUser(
 		throw err;
 	}
 
-	// Read the DNS view outside the rollback scope: the domain is fully set up by
-	// now, so a failed status read must not tear it back down or make registration
-	// delete the account that now owns the completed Cloudflare configuration.
 	let dns: DomainDnsView;
 	try {
 		dns = await getDomainDns(env, domain);
 	} catch (error) {
-		console.warn("addDomainForUser: failed to read DNS status after provisioning", error);
+		console.warn("addDomainForUser: failed to read DNS status", error);
 		dns = {
 			routing: { records: [], missing: [], status: provisioned.routingStatus },
 			sending: [],
-			sendingEnabled: provisioned.sendingEnabled,
+			sendingEnabled: false,
 		};
 	}
 	return { domain, dns, changes: provisioned.changes };
@@ -144,41 +120,10 @@ export async function getDomainDns(
 	domain: typeof domains.$inferSelect,
 ): Promise<DomainDnsView> {
 	if (isManualZone(domain.zoneId)) return getManualDomainDns(env, domain.hostname);
-	// Read the zone's actual sending state rather than trusting `sendingRequested`,
-	// which goes stale when sending is enabled outside Mailflare (or when the row
-	// was written before the subdomain existed). A missing Email Sending permission
-	// must not take down the routing/DNS view, so a failed list degrades to none.
-	const [routingDns, routingSettings, sendingSubdomains] = await Promise.all([
-		getEmailRoutingDns(env, domain.zoneId),
-		getEmailRoutingSettings(env, domain.zoneId),
-		listSendingSubdomains(env, domain.zoneId).catch((error) => {
-			console.warn("getDomainDns: failed to list sending subdomains", error);
-			return [];
-		}),
-	]);
-	const sendingSubdomain = findSendingSubdomain(domain.hostname, sendingSubdomains);
-	let sending: CfDnsRecord[] = [];
-	if (sendingSubdomain?.tag) {
-		sending = await getSendingSubdomainDns(env, domain.zoneId, sendingSubdomain.tag).catch(
-			(error) => {
-				console.warn("getDomainDns: failed to read sending subdomain DNS", error);
-				return [];
-			},
-		);
-	}
-	return {
-		routing: {
-			records: routingDns.records,
-			missing: routingDns.missing,
-			status: routingSettings.status,
-		},
-		sending,
-		sendingEnabled: sendingSubdomain?.enabled ?? false,
-		dkimSelector: sendingSubdomain?.dkim_selector,
-		sendingSubdomain: sendingSubdomain
-			? { name: sendingSubdomain.name, tag: sendingSubdomain.tag }
-			: undefined,
-	};
+	// Defensive: older rows may carry a zone id from a build that could provision.
+	// Nothing here can talk to Cloudflare, so they degrade to the manual checklist
+	// rather than throwing in the DNS view.
+	return getManualDomainDns(env, domain.hostname);
 }
 
 export async function removeDomainForUser(
@@ -194,32 +139,8 @@ export async function removeDomainForUser(
 		.limit(1);
 	if (!domain) throw new Error("Domain not found");
 
-	try {
-		await deleteEmailRoutingRulesForDomain(env, domain.zoneId, domain.hostname);
-	} catch (err) {
-		console.warn("deleteEmailRoutingRulesForDomain", err);
-	}
-
-	const [otherDomainOnZone] = await db.select({ id: domains.id }).from(domains).where(and(
-		eq(domains.zoneId, domain.zoneId),
-		ne(domains.id, domainId),
-	)).limit(1);
-	if (domain.routingEnabled && !otherDomainOnZone) {
-		try {
-			await disableEmailRouting(env, domain.zoneId);
-		} catch (err) {
-			console.warn("disableEmailRouting", err);
-		}
-	}
-
-	if (domain.sendingSubdomainTag) {
-		try {
-			await deleteSendingSubdomain(env, domain.zoneId, domain.sendingSubdomainTag);
-		} catch (err) {
-			console.warn("deleteSendingSubdomain", err);
-		}
-	}
-
+	// Mailflare never created routing rules, MX records or a sending subdomain for
+	// this domain, so removing it forgets the domain and leaves DNS untouched.
 	await db.delete(domains).where(eq(domains.id, domainId));
 }
 
