@@ -62,3 +62,7 @@ mailflare-landing
 .agents
 skills-lock.json
 /dist/
+
+# Kanban worker worktrees and local plan notes
+.worktrees/
+.hermes/
