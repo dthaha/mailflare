@@ -12,10 +12,3 @@
 # The Worker uses the AI binding in wrangler.jsonc. Override its chat/draft model
 # if needed (the default is a US-origin model on Workers AI).
 # AI_MODEL=@cf/meta/llama-3.3-70b-instruct-fp8-fast
-
-# Self-hosted Node runtime only (server/): outbound mail through any SMTP relay,
-# or through Cloudflare Email Sending with an account id and a token that has
-# Email Sending:Edit. Neither is used to manage DNS or Email Routing.
-# SMTP_URL=smtps://user:pass@host:465
-# CF_ACCOUNT_ID=
-# CF_TOKEN=

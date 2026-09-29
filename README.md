@@ -64,17 +64,6 @@ There is no `CF_TOKEN` to create. Onboard the domain to Email Routing, point its
 
 See the [deployment guide](docs/deployment.md) for required permissions, manual deployment, backups, and updates.
 
-### Self-host with Docker instead
-
-Mailflare also runs as one container on any server, with SQLite and local files in place of D1 and R2, a built-in SMTP listener for inbound mail (or a small Cloudflare relay Worker if you want to keep MX on Cloudflare), and any SMTP relay or Cloudflare Email Sending for outbound.
-
-```bash
-cp .env.docker.example .env.docker
-docker compose up -d --build
-```
-
-See [docs/self-hosting.md](docs/self-hosting.md).
-
 ## Local development
 
 ```bash
@@ -88,7 +77,7 @@ Add your Cloudflare credentials to `.dev.vars`, then open [http://localhost:3000
 
 The Cloudflare app uses vinext and the Cloudflare Vite plugin, including local D1, R2, Queues, and Durable Objects. Remote bindings are disabled by default. To use Workers AI locally, authenticate with Wrangler, select your account with `CLOUDFLARE_ACCOUNT_ID`, and run `CLOUDFLARE_REMOTE_BINDINGS=true npm run dev`.
 
-`npm run build` builds the complete Worker; `npm run start` previews that build locally. `npm run deploy` builds and deploys it. The separate Node/Docker runtime still uses Next.js and the existing `build:node`, `start:node`, and `dev:node` commands.
+`npm run build` builds the complete Worker; `npm run start` previews that build locally. `npm run deploy` builds and deploys it.
 
 ## Documentation
 

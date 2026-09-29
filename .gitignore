@@ -15,14 +15,11 @@
 
 # next.js
 /.next/
-/.next-node/
 /out/
 
 # production
 /build
 /dist
-/data
-.env.docker
 
 # misc
 .DS_Store
