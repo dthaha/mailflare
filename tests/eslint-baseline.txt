@@ -1,0 +1,67 @@
+# Known-good ESLint ERRORS for tests/eslint-baseline.txt. One line per
+# (file, rule, severity, first message line), tab separated, sorted with
+# LC_ALL=C. `#` lines and blanks are comments (scripts/verify-fork.mjs ignores
+# them). Occurrence counts are not tracked: the gate is about a new error, not
+# about how many times an inherited one repeats.
+#
+# Provenance: `./node_modules/.bin/eslint . --format json` in a clean upstream
+# checkout at c57671f (the commit this fork is based on):
+#
+#   git worktree add --detach <scratch>/mf-upstream c57671f
+#   ln -s <repo>/node_modules <scratch>/mf-upstream/node_modules
+#   cd <scratch>/mf-upstream && ./node_modules/.bin/eslint . --format json
+#
+# Upstream reports 63 errors (136 problems) and the fork reports 62, so "eslint
+# exits 0" can never be true without editing upstream code — hence a baseline
+# here, the same one-way delta the typecheck gate uses. Those 62 are nearly all
+# React Compiler rules (react-hooks/set-state-in-effect, react-hooks/refs,
+# react-hooks/purity) that upstream ships broken. Warnings are never fatal, but
+# a problem that was a warning and is now an error has a different severity and
+# therefore counts as a new error identity.
+
+src/app/(admin)/accounts/[id]/mailboxes/page.tsx	react-hooks/set-state-in-effect	error	Error: Calling setState synchronously within an effect can trigger cascading renders
+src/app/(admin)/accounts/page.tsx	react-hooks/set-state-in-effect	error	Error: Calling setState synchronously within an effect can trigger cascading renders
+src/app/(admin)/agent/page.tsx	react-hooks/set-state-in-effect	error	Error: Calling setState synchronously within an effect can trigger cascading renders
+src/app/(admin)/backups/page.tsx	react-hooks/set-state-in-effect	error	Error: Calling setState synchronously within an effect can trigger cascading renders
+src/app/(admin)/branding/page.tsx	react-hooks/set-state-in-effect	error	Error: Calling setState synchronously within an effect can trigger cascading renders
+src/app/(admin)/mailboxes/[id]/MailboxAvatarForm.tsx	react-hooks/set-state-in-effect	error	Error: Calling setState synchronously within an effect can trigger cascading renders
+src/app/(admin)/mailboxes/[id]/page.tsx	react-hooks/set-state-in-effect	error	Error: Calling setState synchronously within an effect can trigger cascading renders
+src/app/(admin)/mailboxes/page.tsx	react-hooks/set-state-in-effect	error	Error: Calling setState synchronously within an effect can trigger cascading renders
+src/app/(auth)/register/register-client.tsx	react-hooks/set-state-in-effect	error	Error: Calling setState synchronously within an effect can trigger cascading renders
+src/app/(auth)/register/register-client.tsx	react/no-unescaped-entities	error	`'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`.
+src/app/(dashboard)/calendar/page.tsx	react-hooks/set-state-in-effect	error	Error: Calling setState synchronously within an effect can trigger cascading renders
+src/app/(dashboard)/dashboard-state.ts	react-hooks/set-state-in-effect	error	Error: Calling setState synchronously within an effect can trigger cascading renders
+src/app/(dashboard)/inbox/[messageId]/page.tsx	react-hooks/set-state-in-effect	error	Error: Calling setState synchronously within an effect can trigger cascading renders
+src/app/(dashboard)/use-assistant-availability.ts	react-hooks/set-state-in-effect	error	Error: Calling setState synchronously within an effect can trigger cascading renders
+src/app/api/admin/update/utils.ts	@typescript-eslint/no-explicit-any	error	Unexpected any. Specify a different type.
+src/components/agent/agent-panel.tsx	react-hooks/purity	error	Error: Cannot call impure function during render
+src/components/agent/agent-panel.tsx	react-hooks/set-state-in-effect	error	Error: Calling setState synchronously within an effect can trigger cascading renders
+src/components/auth/auth-shell.tsx	react-hooks/set-state-in-effect	error	Error: Calling setState synchronously within an effect can trigger cascading renders
+src/components/branding-provider.tsx	react-hooks/set-state-in-effect	error	Error: Calling setState synchronously within an effect can trigger cascading renders
+src/components/components-nav.tsx	react-hooks/set-state-in-effect	error	Error: Calling setState synchronously within an effect can trigger cascading renders
+src/components/compose/compose-form.tsx	react-hooks/set-state-in-effect	error	Error: Calling setState synchronously within an effect can trigger cascading renders
+src/components/compose/schedule-send-menu.tsx	react-hooks/purity	error	Error: Cannot call impure function during render
+src/components/contacts/contact-avatar.tsx	react-hooks/set-state-in-effect	error	Error: Calling setState synchronously within an effect can trigger cascading renders
+src/components/contacts/contact-details.tsx	react-hooks/set-state-in-effect	error	Error: Calling setState synchronously within an effect can trigger cascading renders
+src/components/dashboard-nav.tsx	react-hooks/set-state-in-effect	error	Error: Calling setState synchronously within an effect can trigger cascading renders
+src/components/loading-transition.tsx	react-hooks/purity	error	Error: Cannot call impure function during render
+src/components/loading-transition.tsx	react-hooks/refs	error	Error: Cannot access refs during render
+src/components/loading-transition.tsx	react-hooks/set-state-in-effect	error	Error: Calling setState synchronously within an effect can trigger cascading renders
+src/components/mailbox-selector.tsx	react-hooks/set-state-in-effect	error	Error: Calling setState synchronously within an effect can trigger cascading renders
+src/components/message-actions/message-actions.tsx	react-hooks/preserve-manual-memoization	error	Compilation Skipped: Existing memoization could not be preserved
+src/components/message-actions/types.d.ts	@typescript-eslint/no-explicit-any	error	Unexpected any. Specify a different type.
+src/components/message-attachment-viewer.tsx	react-hooks/set-state-in-effect	error	Error: Calling setState synchronously within an effect can trigger cascading renders
+src/components/messages/conversation-thread.tsx	react-hooks/set-state-in-effect	error	Error: Calling setState synchronously within an effect can trigger cascading renders
+src/components/messages/message-folder-page.tsx	react-hooks/set-state-in-effect	error	Error: Calling setState synchronously within an effect can trigger cascading renders
+src/components/messages/message-navigation.tsx	react-hooks/set-state-in-effect	error	Error: Calling setState synchronously within an effect can trigger cascading renders
+src/components/messages/message-source-dialog.tsx	react-hooks/set-state-in-effect	error	Error: Calling setState synchronously within an effect can trigger cascading renders
+src/components/messages/message-split-layout.tsx	react-hooks/set-state-in-effect	error	Error: Calling setState synchronously within an effect can trigger cascading renders
+src/components/messages/thread-message-actions.tsx	react-hooks/set-state-in-effect	error	Error: Calling setState synchronously within an effect can trigger cascading renders
+src/components/progressive-avatar-image.tsx	react-hooks/refs	error	Error: Cannot access refs during render
+src/components/settings/current-mailbox-form.tsx	react-hooks/set-state-in-effect	error	Error: Calling setState synchronously within an effect can trigger cascading renders
+src/components/settings/mailbox-auto-reply-form.tsx	react-hooks/set-state-in-effect	error	Error: Calling setState synchronously within an effect can trigger cascading renders
+src/components/settings/mailbox-signature-form.tsx	react-hooks/set-state-in-effect	error	Error: Calling setState synchronously within an effect can trigger cascading renders
+src/components/settings/mcp-agent-instructions.tsx	react-hooks/set-state-in-effect	error	Error: Calling setState synchronously within an effect can trigger cascading renders
+src/components/settings/profile-avatar-form.tsx	react-hooks/set-state-in-effect	error	Error: Calling setState synchronously within an effect can trigger cascading renders
+src/components/sidebar-state.tsx	react-hooks/set-state-in-effect	error	Error: Calling setState synchronously within an effect can trigger cascading renders
+src/hooks/use-message-counts.ts	react-hooks/set-state-in-effect	error	Error: Calling setState synchronously within an effect can trigger cascading renders

@@ -7,6 +7,7 @@
     "build": "npm run db:bundle && vite build",
     "start": "vite preview --port 3000",
     "lint": "eslint .",
+    "verify": "node scripts/verify-fork.mjs",
     "deploy": "npm run build && npm run deploy:worker",
     "deploy:worker": "wrangler deploy",
     "deploy:local": "npm run deploy",

@@ -1,0 +1,44 @@
+# Known-good type errors for tests/tsc-baseline.txt. One line per
+# `tsc --noEmit` diagnostic, verbatim, sorted with LC_ALL=C, no continuation
+# lines. `#` lines and blanks are comments (scripts/verify-fork.mjs ignores them).
+#
+# Provenance: typechecking a clean upstream checkout at c57671f — the commit
+# this fork is based on, and this branch's merge base with upstream/main —
+# with a symlinked node_modules taken from this repo:
+#
+#   git worktree add --detach <scratch>/mf-upstream c57671f
+#   ln -s <repo>/node_modules <scratch>/mf-upstream/node_modules
+#   cd <scratch>/mf-upstream && npm run db:bundle && ./node_modules/.bin/tsc --noEmit
+#
+# Upstream is not clean: these 18 errors are inherited and are NOT this fork's
+# to fix. Upstream's four "Cannot find module 'nodemailer' / 'smtp-server'"
+# errors (server/runtime/mailer.ts, server/runtime/smtp.ts) are deliberately
+# absent: they are not upstream type errors but module-resolution noise from
+# installing this fork's lockfile, which dropped those packages (commit
+# 3a07202). Upstream with its own dependencies does not produce them, and the
+# fork deleted server/** outright — if an import of either package comes back,
+# that is a new error and must fail.
+#
+# The gate is one-way (see scripts/verify-fork.mjs): a line here that tsc no
+# longer reports is informational, a `error TS` line tsc reports that is not
+# here fails. If you touch a file listed below and its line/column numbers move,
+# re-measure and update the line.
+
+src/app/(admin)/accounts/[id]/mailboxes/page.tsx(104,17): error TS2322: Type '"icon"' is not assignable to type '"default" | "sm" | "lg" | null | undefined'.
+src/app/(admin)/general/utils.ts(18,36): error TS18046: 'data' is of type 'unknown'.
+src/app/(admin)/general/utils.ts(7,36): error TS18046: 'data' is of type 'unknown'.
+src/app/(admin)/mailboxes/[id]/page.tsx(230,17): error TS2322: Type '"icon"' is not assignable to type '"default" | "sm" | "lg" | null | undefined'.
+src/app/(admin)/mailboxes/[id]/page.tsx(319,19): error TS2322: Type '"icon"' is not assignable to type '"default" | "sm" | "lg" | null | undefined'.
+src/app/(dashboard)/calendar/page.tsx(130,24): error TS18046: 'data' is of type 'unknown'.
+src/app/(dashboard)/calendar/page.tsx(91,33): error TS18046: 'data' is of type 'unknown'.
+src/app/(dashboard)/inbox/[messageId]/quote-collapse-utils.ts(25,18): error TS2769: No overload matches this call.
+src/app/(dashboard)/inbox/[messageId]/quote-collapse-utils.ts(26,18): error TS2769: No overload matches this call.
+src/app/api/admin/agent/utils.ts(42,37): error TS2769: No overload matches this call.
+src/app/api/backups/utils.ts(14,86): error TS2345: Argument of type 'string' is not assignable to parameter of type 'BackupTableGroupId'.
+src/app/api/calendar/events/[eventId]/route.ts(27,458): error TS2740: Type 'Uint8Array<ArrayBufferLike>' is missing the following properties from type 'ArrayBuffer': maxByteLength, resizable, resize, detached, and 2 more.
+src/app/api/calendar/events/route.ts(35,316): error TS2740: Type 'Uint8Array<ArrayBufferLike>' is missing the following properties from type 'ArrayBuffer': maxByteLength, resizable, resize, detached, and 2 more.
+src/components/messages/thread-message-actions.tsx(52,15): error TS2345: Argument of type '{ starred: boolean; }' is not assignable to parameter of type 'SetStateAction<boolean>'.
+src/components/settings/api-keys-settings-utils.ts(18,2): error TS2322: Type 'unknown' is not assignable to type '{ error?: unknown; key?: string | undefined; apiKeys?: ManagedApiKey[] | undefined; }'.
+src/components/settings/import-messages.tsx(77,11): error TS18048: 'result.errors' is possibly 'undefined'.
+src/components/settings/utils.ts(36,2): error TS2741: Property 'domainId' is missing in type '{ id: string; localPart: string; hostname: string; displayName: string | null; hasAvatar: boolean | undefined; isPrimary: boolean | undefined; }' but required in type 'MailboxOption'.
+src/hooks/use-message-counts.ts(66,58): error TS18048: 'detail.inboxUnreadDelta' is possibly 'undefined'.
