@@ -22,55 +22,84 @@ The bindings that matter are already in `wrangler.jsonc`: `DB` (D1), `BUCKET`
 (R2), the three Queues, the `RealtimeHub` Durable Object, and the `EMAIL`
 `send_email` binding used for outbound mail.
 
-## 2. Give the domain to Email Routing
+## 2. Give hafamily.tech to Email Routing
 
 In the Cloudflare dashboard: **Compute → Email Service → Email Routing**, select
-**Onboard Domain**, and pick the domain. Cloudflare writes the DNS records for
-you:
+**Onboard Domain**, and pick `hafamily.tech` — the apex, not a subdomain. Cloudflare
+writes the DNS records for you:
 
 | Type | Name | Value |
 | --- | --- | --- |
 | MX | `@` | `route1.mx.cloudflare.net`, `route2.mx.cloudflare.net`, `route3.mx.cloudflare.net` |
 | TXT | `@` | `v=spf1 include:_spf.mx.cloudflare.net ~all` |
 | TXT | `cf2024-1._domainkey` | the DKIM key shown under **Email Routing → Settings** |
+| TXT | `_dmarc` | `v=DMARC1; p=none` (Cloudflare writes this too) |
 
-If the domain already has MX records pointing at another provider, delete them:
-Email Routing needs exclusive control of the domain's MX records, and this build
-will not touch them for you. Until they are gone, mail keeps going to the old
-provider.
+`hafamily.tech` currently points mail at Microsoft 365, and those records have to
+go before Email Routing can take over:
+
+- MX `@` → `hafamily-tech.mail.protection.outlook.com` — delete it. Email Routing
+  needs exclusive control of the domain's MX records, so mail keeps going to the
+  old provider for as long as a competing MX exists. This build will not touch
+  your records for you.
+- TXT `@` → `v=spf1 include:spf.protection.outlook.com -all` — delete it. The
+  `-all` hardfail rejects everything the SPF record does not list, which includes
+  Cloudflare's sending infrastructure, so outbound mail from `@hafamily.tech`
+  would fail SPF at the recipient. Cloudflare's own SPF
+  (`v=spf1 include:_spf.mx.cloudflare.net ~all`) replaces it.
+
+Relaxing rather than deleting the old SPF would work too — `-all` → `~all` and an
+added `include:_spf.mx.cloudflare.net` — but the Microsoft include is dead weight
+once mail no longer flows through M365, so deleting is the honest option.
 
 ## 3. Point the addresses at this Worker
 
 Add a routing rule (**Email Routing → Routing Rules → Create routing rule**) with
-**Action: Send to a Worker** and **Worker: mailflare**. A single custom address
-covers that mailbox; enabling the **Catch-all rule** with the same action covers
-every address on the domain, which is usually what you want for a mail server
-that decides for itself which mailboxes exist.
+**Action: Send to a Worker** and **Worker: mailflare**. Enabling the
+**Catch-all rule** with the same action covers every address on the apex, which is
+what you want for a mail server that decides for itself which mailboxes exist.
 
-You can declare the same rules in `wrangler.jsonc` instead of clicking, if you
-prefer them in version control (Wrangler 4.113.0 or newer):
+The catch-all is already declared in `wrangler.jsonc`, so `npm run deploy`
+reconciles it (Wrangler 4.113.0 or newer):
 
 ```jsonc
 {
-	"addresses": ["*@your-domain.com"]
+	"addresses": ["*@hafamily.tech"]
 }
 ```
 
 Wrangler creates a rule for each literal address and treats `*@domain` as the
-catch-all; they are then reconciled on every deploy.
+catch-all; the set in the file becomes the set in the account on every deploy.
 
-Add the domain in Mailflare (**Admin → Domains**) and it is live as soon as a
+Add `hafamily.tech` in Mailflare (**Admin → Domains**) and it is live as soon as a
 message arrives.
+
+### Adding a mailbox needs no DNS change
+
+Because the catch-all covers `*@hafamily.tech`, a new address — `schools@`,
+`billing@`, anything — is a row in Mailflare and nothing else. No routing rule, no
+DNS record, no deploy: the Worker receives the message either way and the app
+decides whether a mailbox exists for it. That is the payoff of onboarding the apex
+instead of a subdomain, where every new address would be a new rule to reconcile.
 
 ## 4. Sending (optional)
 
 Outbound mail uses the `send_email` binding, which needs the domain onboarded to
 **Email Sending** (**Compute → Email Service → Email Sending → Onboard Domain**).
-That writes the `cf-bounce` MX, SPF and DKIM records and a DMARC record. Sending
-requires a paid Workers plan.
+Onboard `hafamily.tech` again — outbound goes out as the same apex address mail
+arrives at, `@hafamily.tech`, so the routing DKIM, the `cf-bounce` records and the
+DMARC record all belong on the one domain. Cloudflare writes:
+
+| Type | Name | Value |
+| --- | --- | --- |
+| MX | `cf-bounce` | `route1.mx.cloudflare.net` (priority 10) |
+| TXT | `cf-bounce` | `v=spf1 include:_spf.mx.cloudflare.net ~all` |
+| TXT | `cf-bounce._domainkey` | the DKIM key shown under **Email Sending → Settings** |
+
+Sending requires a paid Workers plan.
 
 Mailflare renders those records on the domain page and reports sending as
-configured only when `cf-bounce._domainkey.<domain>` resolves in public DNS.
+configured only when `cf-bounce._domainkey.hafamily.tech` resolves in public DNS.
 
 ## 5. Verify
 

@@ -11,8 +11,10 @@
 	// Email Routing rules are configuration, not application state, so they are
 	// declared here instead of being created at runtime with a Cloudflare token.
 	// Wrangler (>= 4.113.0) reconciles these on deploy: each entry uses the
-	// "Send to a Worker" action and "*@example.com" configures the catch-all.
-	// "addresses": ["*@your-domain.com"],
+	// "Send to a Worker" action, and "*@hafamily.tech" is the apex catch-all.
+	"addresses": [
+		"*@hafamily.tech",
+	],
 	"assets": {
 		"binding": "ASSETS",
 		"not_found_handling": "none",
@@ -71,6 +73,10 @@
 		},
 	],
 	"ai": { "binding": "AI", "remote": true },
+	// database_id is deliberately absent: it is the per-account D1 uuid that the
+	// provisioning/deploy step injects (the Deploy to Cloudflare button used to
+	// do that). It is not guessable and must not be invented here — create the
+	// database and paste the id that `wrangler d1 create mailflare` prints.
 	"d1_databases": [
 		{
 			"binding": "DB",
