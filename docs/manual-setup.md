@@ -33,10 +33,14 @@ writes the DNS records for you:
 | MX | `@` | `route1.mx.cloudflare.net`, `route2.mx.cloudflare.net`, `route3.mx.cloudflare.net` |
 | TXT | `@` | `v=spf1 include:_spf.mx.cloudflare.net ~all` |
 | TXT | `cf2024-1._domainkey` | the DKIM key shown under **Email Routing → Settings** |
-| TXT | `_dmarc` | `v=DMARC1; p=none` (Cloudflare writes this too) |
+| TXT | `_dmarc` | `v=DMARC1; p=none` — hafamily.tech publishes none today, so add one if onboarding does not |
 
-`hafamily.tech` currently points mail at Microsoft 365, and those records have to
-go before Email Routing can take over:
+Public DNS on 2026-09-29 (Cloudflare DoH) shows exactly one MX,
+`0 hafamily-tech.mail.protection.outlook.com`, and two TXT records,
+`MS=ms17251836` and `v=spf1 include:spf.protection.outlook.com -all`; no
+`_dmarc`, no DKIM record, and nameservers `isla.ns.cloudflare.com` /
+`pete.ns.cloudflare.com`. `hafamily.tech` currently points mail at Microsoft 365,
+and those records have to go before Email Routing can take over:
 
 - MX `@` → `hafamily-tech.mail.protection.outlook.com` — delete it. Email Routing
   needs exclusive control of the domain's MX records, so mail keeps going to the
@@ -47,6 +51,9 @@ go before Email Routing can take over:
   Cloudflare's sending infrastructure, so outbound mail from `@hafamily.tech`
   would fail SPF at the recipient. Cloudflare's own SPF
   (`v=spf1 include:_spf.mx.cloudflare.net ~all`) replaces it.
+- TXT `@` → `MS=ms17251836` — Microsoft's domain-verification record. It carries
+  no mail either way, so it can stay; delete it once the Microsoft 365 tenant is
+  retired.
 
 Relaxing rather than deleting the old SPF would work too — `-all` → `~all` and an
 added `include:_spf.mx.cloudflare.net` — but the Microsoft include is dead weight
