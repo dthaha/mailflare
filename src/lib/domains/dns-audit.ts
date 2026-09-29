@@ -1,6 +1,5 @@
 import type { CfDnsRecord } from "@/lib/cloudflare-api.types";
 import { queryDns, type DnsQueryType } from "@/lib/dns-query";
-import { isNodeRuntime } from "@/lib/runtime";
 
 export type DnsAuthRecord = "mx" | "spf" | "dkim" | "dmarc";
 export type DnsAuthStatus = "ok" | "missing" | "unknown";
@@ -54,17 +53,15 @@ const CLOUDFLARE_ROUTING_MX = /\.mx\.cloudflare\.net\.?$/i;
  * This is the only DNS check this build can do, and it is the one that matters:
  * the records are looked up over DNS-over-HTTPS from a public resolver, so the
  * answer reflects what the internet actually sees rather than what an API says
- * was configured. On Workers, Email Routing requires the domain's MX to point at
- * Cloudflare's routing servers and the SPF record to authorize them; the
- * self-hosted runtime instead points MX at its own mail host, so it accepts any
- * non-null MX. A name that resolves is "ok", one that answers NXDOMAIN is
- * "missing", and a lookup that fails outright is "unknown".
+ * was configured. Email Routing requires the domain's MX to point at
+ * Cloudflare's routing servers and the SPF record to authorize them. A name that
+ * resolves is "ok", one that answers NXDOMAIN is "missing", and a lookup that
+ * fails outright is "unknown".
  */
 export async function auditDomainDns(
 	hostname: string,
 	view: AuditInput,
 ): Promise<DomainDnsAudit> {
-	const expectsCloudflareRouting = !isNodeRuntime();
 	const expected = [...view.routing.records, ...view.routing.missing, ...view.sending];
 	// The selector is known in manual mode; otherwise prefer what Cloudflare
 	// reported, and fall back to the DKIM record name in the zone view.
@@ -80,13 +77,10 @@ export async function auditDomainDns(
 			"MX",
 			hostname,
 			"MX",
-			(value) =>
-				expectsCloudflareRouting
-					? CLOUDFLARE_ROUTING_MX.test(value.trim())
-					: !/^0\s*\.?$/.test(value.trim()),
+			(value) => CLOUDFLARE_ROUTING_MX.test(value.trim()),
 		),
 		check("spf", "SPF", hostname, "TXT", (value) =>
-			expectsCloudflareRouting ? /include:_spf\.mx\.cloudflare\.net/i.test(value) : /v=spf1/i.test(value),
+			/include:_spf\.mx\.cloudflare\.net/i.test(value),
 		),
 		check("dmarc", "DMARC", `_dmarc.${hostname}`, "TXT", (value) => /v=DMARC1/i.test(value)),
 	]);

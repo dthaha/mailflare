@@ -22,8 +22,8 @@ function decodeTxt(data: string): string {
 }
 
 /**
- * Resolves a name over DNS-over-HTTPS so the same code path works on Workers
- * (no Node `dns` module) and in the self-hosted runtime. `NXDOMAIN` and an
+ * Resolves a name over DNS-over-HTTPS so the check reflects what the internet
+ * actually sees rather than what an API says was configured. `NXDOMAIN` and an
  * empty `NOERROR` answer both map to an empty list; any other failure throws so
  * callers can tell "missing" apart from "could not check".
  */

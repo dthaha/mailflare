@@ -11,9 +11,9 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 /**
  * The modules under test import through the `@/*` alias and are TypeScript, so
- * they are bundled with the esbuild already used by `scripts/build-server.mjs`
- * rather than loaded directly. Nothing here touches a Workers binding: the
- * import helpers are pure and the query layer only builds SQL.
+ * they are bundled with esbuild rather than loaded directly. Nothing here
+ * touches a Workers binding: the import helpers are pure and the query layer
+ * only builds SQL.
  */
 const outDir = mkdtempSync(join(tmpdir(), "mailflare-jmap-test-"));
 after(() => rmSync(outDir, { recursive: true, force: true }));

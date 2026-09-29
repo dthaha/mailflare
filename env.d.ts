@@ -25,10 +25,6 @@ interface CloudflareEnv {
 	GITHUB_UPDATE_TOKEN?: string;
 	GITHUB_UPDATE_REF?: string;
 	GITHUB_UPDATE_REPO?: string;
-	/** "node" when served by the self-hosted runtime in server/; unset on Workers. */
-	MAILFLARE_RUNTIME?: "node";
-	/** Shared secret the Cloudflare email relay signs inbound webhooks with (self-hosted only). */
-	INBOUND_WEBHOOK_SECRET?: string;
 	/** Public origin of this install (https://mail.example.com) when it sits behind a proxy. */
 	APP_URL?: string;
 	/**

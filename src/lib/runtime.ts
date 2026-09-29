@@ -1,22 +1,4 @@
 /**
- * Where the app is running. On Cloudflare Workers the bindings come from
- * cloudflare:workers; the self-hosted Node server builds an equivalent env object and
- * publishes it on globalThis before Next starts, so route handlers reach it
- * the same way.
- */
-declare global {
-	var __mailflareNodeEnv: CloudflareEnv | undefined;
-}
-
-export function getNodeEnv(): CloudflareEnv | undefined {
-	return globalThis.__mailflareNodeEnv;
-}
-
-export function isNodeRuntime(env?: Pick<CloudflareEnv, "MAILFLARE_RUNTIME">): boolean {
-	return (env ?? getNodeEnv())?.MAILFLARE_RUNTIME === "node";
-}
-
-/**
  * This build never talks to the Cloudflare API, so the app holds no API token,
  * no global key and no account id. DNS and Email Routing belong to whoever runs
  * the nameservers: they are configured by hand in the dashboard, or declared for

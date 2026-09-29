@@ -7,13 +7,16 @@ import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { build } from "esbuild";
 
+import { SqliteDatabase, applyMigrations } from "./helpers/d1-sqlite.mjs";
+
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+// The bundle's `cloudflare:workers` module reads this object, so filling it in
+// below is what `getEnv()` hands the application.
+const testEnv = (globalThis.__mailflareTestEnv ??= {});
 const bundleDirectory = mkdtempSync(join(root, "node_modules", "mailflare-agent-bundle-"));
 await build({
 	stdin: {
 		contents: `
-			export { SqliteDatabase } from "./server/runtime/sqlite-database.ts";
-			export { applyMigrations } from "./server/runtime/migrate.ts";
 			export { createAgentChatStream } from "./src/lib/agent/chat.ts";
 			export { runEmailTool } from "./src/lib/agent/tools.ts";
 			export { requestAgentSend } from "./src/lib/agent/approvals/utils.ts";
@@ -32,11 +35,11 @@ await build({
 	packages: "external",
 	alias: {
 		"next/headers": "next/headers.js",
-		"cloudflare:workers": "./server/runtime/cloudflare-workers.ts",
+		"cloudflare:workers": "./tests/helpers/cloudflare-workers-stub.mjs",
 	},
 	logLevel: "silent",
 });
-const { SqliteDatabase, applyMigrations, createAgentChatStream, runEmailTool, requestAgentSend, createSession, postAgentChat } = await import(pathToFileURL(join(bundleDirectory, "entry.mjs")).href);
+const { createAgentChatStream, runEmailTool, requestAgentSend, createSession, postAgentChat } = await import(pathToFileURL(join(bundleDirectory, "entry.mjs")).href);
 
 test("assistant reads mail, creates an editable reply draft, and invokes tools through chat", async (t) => {
 	t.after(() => rmSync(bundleDirectory, { recursive: true, force: true }));
@@ -74,6 +77,7 @@ test("assistant reads mail, creates an editable reply draft, and invokes tools t
 	t.after(() => server.close());
 	const address = server.address();
 	const env = { DB: database, BUCKET: { get: async () => null, delete: async () => {} }, AI_BASE_URL: `http://127.0.0.1:${address.port}/v1`, AI_API_KEY: "test-key", AI_MODEL: "test-model" };
+	Object.assign(testEnv, env);
 	const context = { env, user: { id: "user-1", email: "owner@example.com", role: "user" }, mailboxId: "mailbox-1", origin: "chat" };
 
 	const listed = await runEmailTool(context, "list_emails", { folder: "inbox", limit: 20 });
@@ -94,13 +98,28 @@ test("assistant reads mail, creates an editable reply draft, and invokes tools t
 	assert.equal(database.db.prepare("SELECT count(*) AS count FROM agent_send_approvals").get().count, 0);
 	const newDraft = await runEmailTool(context, "draft_email", { to: "customer@example.net", subject: "Follow up", body: "Hello again." });
 	assert.equal(database.db.prepare("SELECT status FROM messages WHERE id = ?").get(newDraft.draftId).status, "draft");
-	await runEmailTool(context, "discard_draft", { draftId: newDraft.draftId, expectedRevision: 1 });
-	assert.equal(database.db.prepare("SELECT id FROM messages WHERE id = ?").get(newDraft.draftId), undefined);
-	await runEmailTool(context, "mark_email_read", { emailId: "email-1", read: true });
+	// In chat the assistant only proposes these three actions — the panel asks the
+	// user to confirm them — so each tool returns the proposal and changes nothing.
+	const discardProposal = await runEmailTool(context, "discard_draft", { draftId: newDraft.draftId, expectedRevision: 1 });
+	assert.equal(discardProposal.status, "pending_approval");
+	assert.equal(database.db.prepare("SELECT id FROM messages WHERE id = ?").get(newDraft.draftId).id, newDraft.draftId);
+	const readProposal = await runEmailTool(context, "mark_email_read", { emailId: "email-1", read: true });
+	assert.equal(readProposal.status, "pending_approval");
+	assert.notEqual(database.db.prepare("SELECT read FROM messages WHERE id = 'email-1'").get().read, 1);
+	const moveProposal = await runEmailTool(context, "move_email", { emailId: "email-1", destination: "archived" });
+	assert.equal(moveProposal.status, "pending_approval");
+	assert.equal(database.db.prepare("SELECT status FROM messages WHERE id = 'email-1'").get().status, "received");
+
+	// The same calls from a non-chat origin (the MCP and auto-draft paths) act immediately.
+	const directContext = { ...context, origin: "mcp" };
+	await runEmailTool(directContext, "mark_email_read", { emailId: "email-1", read: true });
 	assert.equal(database.db.prepare("SELECT read FROM messages WHERE id = 'email-1'").get().read, 1);
-	await runEmailTool(context, "move_email", { emailId: "email-1", destination: "archived" });
+	await runEmailTool(directContext, "move_email", { emailId: "email-1", destination: "archived" });
 	assert.equal(database.db.prepare("SELECT status FROM messages WHERE id = 'email-1'").get().status, "archived");
-	await runEmailTool(context, "move_email", { emailId: "email-1", destination: "inbox" });
+	await runEmailTool(directContext, "move_email", { emailId: "email-1", destination: "inbox" });
+	assert.equal(database.db.prepare("SELECT status FROM messages WHERE id = 'email-1'").get().status, "received");
+	assert.equal((await runEmailTool(directContext, "discard_draft", { draftId: newDraft.draftId, expectedRevision: 1 })).status, "discarded");
+	assert.equal(database.db.prepare("SELECT id FROM messages WHERE id = ?").get(newDraft.draftId), undefined);
 
 	const { stream } = await createAgentChatStream(context, "What arrived in my inbox?");
 	const events = (await new Response(stream).text()).trim().split("\n").map((line) => JSON.parse(line));
@@ -111,8 +130,6 @@ test("assistant reads mail, creates an editable reply draft, and invokes tools t
 	const draftEvents = (await new Response(drafted.stream).text()).trim().split("\n").map((line) => JSON.parse(line));
 	assert.ok(draftEvents.some((event) => event.type === "tool" && event.name === "draft_reply" && event.state === "complete" && event.result.draftId));
 	assert.equal(database.db.prepare("SELECT count(*) AS count FROM agent_send_approvals").get().count, 0);
-	globalThis.__mailflareNodeEnv = env;
-	t.after(() => { delete globalThis.__mailflareNodeEnv; });
 	const token = await createSession(env, "user-1");
 	const request = new Request("http://mailflare.local/api/agent/chat", { method: "POST", headers: { Origin: "http://mailflare.local", Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ mailboxId: "mailbox-1", text: "What arrived in my inbox?" }) });
 	const routeResponse = await postAgentChat(request);
