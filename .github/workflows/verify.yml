@@ -6,8 +6,15 @@
 # Upstream is not clean, so two of the steps gate on a *delta* instead of on a
 # clean tree. Measured on upstream/main at the commit this fork is based on
 # (c57671f "Add support for HTML signature #43"):
-#   - `tsc --noEmit` prints the same 18 errors on the fork and on the base, so
-#     the step is a strict two-way diff: any added or removed line fails.
+#   - `tsc --noEmit` prints the same 18 errors on the fork and on the base, but
+#     the gate is ONE-WAY: an error the base does not have fails the run, while
+#     an error the branch no longer produces is reported. The fork deletes
+#     upstream files, and their errors go with them (measured: dropping the
+#     Node/Docker runtime removes four TS2307 "Cannot find module
+#     'nodemailer'/'smtp-server'" errors from server/runtime/{mailer,smtp}.ts),
+#     so a two-way diff would fail on the fork's own progress and can never be
+#     green on main. Semantic creep-back of upstream behaviour is not a type
+#     error and is not caught here: tests/manual-dns-mode.test.mjs is that gate.
 #   - `eslint .` reports 136 problems (63 errors) on the base, so "zero
 #     problems" is impossible without editing upstream code. Lint therefore
 #     fails on new *errors* only; new warnings are reported, not fatal.
@@ -78,16 +85,27 @@ jobs:
             ./node_modules/.bin/tsc --noEmit > /tmp/tsc-base.txt || true
           )
 
-      # Strict on purpose: main carries the fork commits (69 files of
-      # divergence) and this diff is the only thing that notices when upstream
-      # behaviour creeps back in.
+      # One-way on purpose (see the header). Adding a type error upstream's base
+      # does not have fails the run; losing one is reported, because the fork is
+      # supposed to delete upstream code. `LC_ALL=C` on both sides so `sort` and
+      # `comm` agree on the order.
       - name: Compare typecheck output with the base
         run: |
-          if ! diff -u <(LC_ALL=C sort /tmp/tsc-base.txt) <(LC_ALL=C sort /tmp/tsc-mine.txt); then
-            echo "::error::tsc output differs from the upstream base; the branch adds or removes type errors"
+          export LC_ALL=C
+          sort /tmp/tsc-base.txt > /tmp/tsc-base.sorted
+          sort /tmp/tsc-mine.txt > /tmp/tsc-mine.sorted
+          comm -13 /tmp/tsc-base.sorted /tmp/tsc-mine.sorted > /tmp/tsc-new.txt
+          comm -23 /tmp/tsc-base.sorted /tmp/tsc-mine.sorted > /tmp/tsc-gone.txt
+          if [ -s /tmp/tsc-new.txt ]; then
+            echo "::error::the branch adds type errors the upstream base does not have:"
+            cat /tmp/tsc-new.txt
             exit 1
           fi
-          echo "tsc output matches the upstream base ($(wc -l < /tmp/tsc-mine.txt) lines)"
+          if [ -s /tmp/tsc-gone.txt ]; then
+            echo "::notice::the branch no longer produces these upstream-base errors (expected where the fork deleted upstream code):"
+            cat /tmp/tsc-gone.txt
+          fi
+          echo "no new type errors (base: $(wc -l < /tmp/tsc-base.sorted), branch: $(wc -l < /tmp/tsc-mine.sorted))"
 
       - name: Compare lint output with the base
         run: |
