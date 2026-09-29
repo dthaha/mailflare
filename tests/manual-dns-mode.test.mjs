@@ -59,3 +59,28 @@ test("the entitlement layer is local and always on", () => {
 		"no source file may reference the upstream licensing service",
 	);
 });
+
+test("mail for an unresolved recipient is rejected before anything is stored", () => {
+	// The apex catch-all hands every address to the Worker, so an address with no mailbox
+	// and no matching routing rule must be refused at the door. Storing first and letting
+	// the queue consumer drop it would leave an orphan R2 object and bounce nothing.
+	const src = read("worker.ts")
+		.replace(/\/\*[\s\S]*?\*\//g, "")
+		.replace(/\/\/.*$/gm, "");
+	const reject = 'message.setReject("No such recipient");';
+	const store = "await storeRawToR2(env, message.from, message.to, raw);";
+	const rejectAt = src.indexOf(reject);
+	const storeAt = src.indexOf(store);
+
+	assert.notEqual(rejectAt, -1, "the no-decision reject must exist in worker.ts");
+	assert.notEqual(storeAt, -1, "resolved mail must still be stored to R2");
+	assert.ok(
+		rejectAt < storeAt,
+		"the no-decision reject must come before storeRawToR2, or unknown recipients get stored then dropped",
+	);
+	assert.match(
+		src.slice(Math.max(0, rejectAt - 120), rejectAt),
+		/if\s*\(\s*!decision\s*\)\s*\{/,
+		"the reject must be gated on !decision, not on the block-rule decision.action check",
+	);
+});

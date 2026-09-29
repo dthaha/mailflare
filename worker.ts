@@ -80,6 +80,14 @@ export default {
 					await forwardMessage(message, forwardingDestination);
 				}
 			}
+			// Nothing resolved this address: no mailbox, no alias and no catch-all rule.
+			// Reject at the door so a mistyped or probed address bounces instead of being
+			// stored to R2 and silently dropped by the queue consumer later.
+			if (!decision) {
+				message.setReject("No such recipient");
+				return;
+			}
+
 			const rawR2Key = await storeRawToR2(env, message.from, message.to, raw);
 			const payload: InboundQueueMessage = {
 				from: message.from,
