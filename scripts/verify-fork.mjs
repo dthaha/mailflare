@@ -10,8 +10,8 @@
 //   1. npm run db:bundle        - the migration bundle the app imports at runtime
 //   2. tsc --noEmit             - one-way delta against tests/tsc-baseline.txt
 //   3. eslint .                 - one-way delta against tests/eslint-baseline.txt
-//   4. node --test <file>       - every tests/*.test.mjs, minus two allowlisted
-//                                 upstream failures; manual-dns-mode must pass
+//   4. node --test <file>       - every tests/*.test.mjs, minus the allowlisted
+//                                 upstream failure; manual-dns-mode must pass
 //
 // Upstream is not clean, so steps 2 and 3 gate on a *delta* rather than on a
 // clean tree: upstream c57671f (the commit this fork is based on) typechecks
@@ -35,14 +35,14 @@ const ROOT = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const TSC_BASELINE = path.join("tests", "tsc-baseline.txt");
 const ESLINT_BASELINE = path.join("tests", "eslint-baseline.txt");
 
-// KNOWN UPSTREAM TEST FAILURES (measured at the base commit c57671f, they fail
+// KNOWN UPSTREAM TEST FAILURES (measured at the base commit c57671f, it fails
 // on upstream/main too): tests/agent-email-tools.test.mjs cannot open its SQLite
-// bundle, tests/setup-bootstrap-schema.test.mjs fails its python3 schema replay.
-// Tolerated here and nowhere else. tests/manual-dns-mode.test.mjs is banned from
-// this list on purpose: the fork invariants are the one thing that must hold.
+// bundle. Tolerated here and nowhere else. tests/manual-dns-mode.test.mjs is
+// banned from this list on purpose: the fork invariants are the one thing that
+// must hold. A tolerated file that no longer exists is not an error — the fork
+// deleted upstream code, and its tests go with it.
 const ALLOWED_TEST_FAILURES = new Set([
 	"tests/agent-email-tools.test.mjs",
-	"tests/setup-bootstrap-schema.test.mjs",
 ]);
 const REQUIRED_TEST = "tests/manual-dns-mode.test.mjs";
 
