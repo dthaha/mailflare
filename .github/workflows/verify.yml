@@ -1,0 +1,162 @@
+# Fork invariant CI for the self-host fork: mail is stored, never Cloudflare
+# credentials; manual DNS / Email Routing only; no licence gating; no
+# upstream-tree-replacing update workflow. Every step here is meant to fail when
+# one of those comes back.
+#
+# Upstream is not clean, so two of the steps gate on a *delta* instead of on a
+# clean tree. Measured on upstream/main at the commit this fork is based on
+# (c57671f "Add support for HTML signature #43"):
+#   - `tsc --noEmit` prints the same 18 errors on the fork and on the base, so
+#     the step is a strict two-way diff: any added or removed line fails.
+#   - `eslint .` reports 136 problems (63 errors) on the base, so "zero
+#     problems" is impossible without editing upstream code. Lint therefore
+#     fails on new *errors* only; new warnings are reported, not fatal.
+# The two test files that fail on the base as well are listed in ALLOWED_FAILURES
+# below. tests/manual-dns-mode.test.mjs is deliberately not in that list.
+name: verify
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: fork invariants
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The delta steps run tsc/eslint in a worktree of the base commit, so
+          # its objects have to be in the clone.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      # The baseline for the delta steps is the commit upstream/main shares
+      # with this branch (the merge base), NOT upstream/main's moving tip:
+      # upstream has since landed two commits the fork has not merged, and
+      # diffing against the tip turns the run red for that drift alone
+      # (measured: the tip's ccca978 adds `react-hot-toast` and moves the
+      # calendar errors, so a tip-based diff is never empty).
+      - name: Add the upstream remote
+        run: |
+          git remote add upstream https://github.com/hieunc229/mailflare.git
+          git fetch --no-tags upstream +refs/heads/main:refs/remotes/upstream/main
+          git merge-base HEAD upstream/main > /tmp/base-sha
+          echo "upstream base: $(cat /tmp/base-sha)"
+
+      - name: Install
+        run: npm ci --ignore-scripts
+
+      - name: Build the migration bundle
+        run: npm run db:bundle
+
+      - name: Typecheck the branch
+        run: ./node_modules/.bin/tsc --noEmit > /tmp/tsc-mine.txt || true
+
+      - name: Typecheck the upstream base
+        run: |
+          git worktree add --detach /tmp/base "$(cat /tmp/base-sha)"
+          ln -s "$PWD/node_modules" /tmp/base/node_modules
+          (
+            cd /tmp/base
+            npm run db:bundle
+            ./node_modules/.bin/tsc --noEmit > /tmp/tsc-base.txt || true
+          )
+
+      # Strict on purpose: main carries the fork commits (69 files of
+      # divergence) and this diff is the only thing that notices when upstream
+      # behaviour creeps back in.
+      - name: Compare typecheck output with the base
+        run: |
+          if ! diff -u <(LC_ALL=C sort /tmp/tsc-base.txt) <(LC_ALL=C sort /tmp/tsc-mine.txt); then
+            echo "::error::tsc output differs from the upstream base; the branch adds or removes type errors"
+            exit 1
+          fi
+          echo "tsc output matches the upstream base ($(wc -l < /tmp/tsc-mine.txt) lines)"
+
+      - name: Compare lint output with the base
+        run: |
+          # C collation throughout, so `sort` and `comm` agree on the order.
+          export LC_ALL=C
+          # Line and column numbers are dropped (they move with any edit) and
+          # only the first line of a message is kept (the rest is ESLint's code
+          # frame, which embeds the checkout path).
+          dump_lint() {
+            ( cd "$1" && ./node_modules/.bin/eslint . --format json || true ) |
+              jq -r --arg root "$1/" '
+                .[] | (.filePath | ltrimstr($root)) as $f
+                | .messages[]
+                | [$f, (.ruleId // "fatal"), (.severity | tostring), (.message | split("\n")[0])]
+                | @tsv' |
+              LC_ALL=C sort > "$2"
+          }
+          dump_lint /tmp/base /tmp/lint-base.tsv
+          dump_lint "$PWD" /tmp/lint-mine.tsv
+          # The gate: new errors, with severity part of the key so a problem
+          # that was a warning on the base and is an error here counts as new.
+          comm -13 /tmp/lint-base.tsv /tmp/lint-mine.tsv > /tmp/lint-new.tsv
+          awk -F'\t' '$3 == 2' /tmp/lint-new.tsv > /tmp/lint-new-errors.tsv
+          if [ -s /tmp/lint-new-errors.tsv ]; then
+            echo "::error::the branch has lint errors the upstream base does not:"
+            cut -f1,2,4 /tmp/lint-new-errors.tsv
+            exit 1
+          fi
+          # Report only, keyed on (file, rule) so the fork's eslint.config.mjs
+          # relabelling upstream's @typescript-eslint/no-unused-vars errors as
+          # warnings (which also rewrites their message) does not read as 42
+          # "new" problems on every run.
+          cut -f1,2 /tmp/lint-base.tsv | LC_ALL=C sort -u > /tmp/lint-base-ids.txt
+          cut -f1,2 /tmp/lint-mine.tsv | LC_ALL=C sort -u > /tmp/lint-mine-ids.txt
+          comm -13 /tmp/lint-base-ids.txt /tmp/lint-mine-ids.txt > /tmp/lint-new-ids.txt
+          if [ -s /tmp/lint-new-ids.txt ]; then
+            echo "::warning::the branch trips these file/rule pairs that the upstream base does not (fatal only when they are errors, checked above):"
+            cat /tmp/lint-new-ids.txt
+          fi
+          echo "no new lint errors (base: $(wc -l < /tmp/lint-base.tsv) problems, branch: $(wc -l < /tmp/lint-mine.tsv))"
+
+      - name: Tests
+        run: |
+          # KNOWN UPSTREAM FAILURES (measured at the base commit c57671f, they
+          # fail on upstream/main too): tests/agent-email-tools.test.mjs cannot
+          # open its SQLite bundle, tests/setup-bootstrap-schema.test.mjs fails
+          # its python3 schema replay. Tolerated here and nowhere else.
+          ALLOWED_FAILURES="tests/agent-email-tools.test.mjs tests/setup-bootstrap-schema.test.mjs"
+
+          # The manual-DNS invariants are the point of the fork, so the file
+          # must exist and the test must pass whether or not it is allowlisted.
+          if [ ! -f tests/manual-dns-mode.test.mjs ]; then
+            echo "::error::tests/manual-dns-mode.test.mjs is gone; nothing guards the fork invariants"
+            exit 1
+          fi
+
+          failed=""
+          for f in tests/*.test.mjs; do
+            if node --test "$f"; then
+              echo "ok: $f"
+            else
+              case " $ALLOWED_FAILURES " in
+                *" $f "*) echo "::warning::$f fails on the upstream base too, tolerated" ;;
+                *) echo "::error file=$f::$f failed"; failed="$failed $f" ;;
+              esac
+            fi
+          done
+          if [ -n "$failed" ]; then
+            echo "::error::failing tests:$failed"
+            exit 1
+          fi
+
+      - name: Build
+        run: npm run build
